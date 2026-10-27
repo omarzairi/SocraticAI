@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.config import Settings
 from app.database import init_db
 from app.errors import ConflictError, NotFoundError
+from app.llm import LLMError, OpenAICompatibleClient
 from app.routers import learners, sessions
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         # the module (as the tests do) never touches the developer's backend/.env.
         app.state.settings = settings or Settings()
         init_db(app.state.settings.database_path)
+        app.state.llm_client = OpenAICompatibleClient(app.state.settings)
         logger.info("Using database %s", app.state.settings.database_path)
+        if not app.state.settings.llm_api_key.get_secret_value():
+            logger.error("LLM_API_KEY is not set: the tutor can't answer until you add it to .env")
         yield
 
     app = FastAPI(title="SocraticAI", lifespan=lifespan)
@@ -44,6 +48,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @app.exception_handler(ConflictError)
     async def handle_conflict(request: Request, exc: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+    @app.exception_handler(LLMError)
+    async def handle_llm_error(request: Request, exc: LLMError) -> JSONResponse:
+        # 502 Bad Gateway: our server is fine, but the upstream AI provider failed us.
+        return JSONResponse(status_code=502, content={"detail": str(exc)})
 
     @app.get("/api/health", tags=["health"])
     def health() -> dict[str, str]:

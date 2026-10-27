@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.dependencies import DbConn, Id
+from app.dependencies import DbConn, Id, Llm
 from app.schemas import Session, SessionCreate, SessionDetail
 from app.services import session_service
 
@@ -8,8 +8,8 @@ router = APIRouter(prefix="/api/learners/{learner_id}/sessions", tags=["sessions
 
 
 @router.post("", status_code=201)
-def start_session(learner_id: Id, body: SessionCreate, conn: DbConn) -> SessionDetail:
-    return session_service.start_session(conn, learner_id, body.topic)
+def start_session(learner_id: Id, body: SessionCreate, conn: DbConn, llm: Llm) -> SessionDetail:
+    return session_service.start_session(conn, llm, learner_id, body.topic)
 
 
 @router.get("")

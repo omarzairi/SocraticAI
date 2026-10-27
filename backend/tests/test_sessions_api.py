@@ -1,11 +1,14 @@
 import pytest
 
+from app.llm import LLMError
+
 # 2**63 is one past SQLite's largest integer.
 INVALID_IDS = ["abc", "0", "-1", str(2**63)]
 
 
-def test_start_session_creates_an_active_session(client, make_learner):
-    learner = make_learner()
+def test_start_session_opens_with_the_tutors_question(client, fake_llm, make_learner):
+    learner = make_learner("Alex")
+    fake_llm.chat_replies.append("Hi Alex! What do you already know about fractions?")
 
     response = client.post(
         f"/api/learners/{learner['id']}/sessions", json={"topic": "  Fractions  "}
@@ -17,15 +20,60 @@ def test_start_session_creates_an_active_session(client, make_learner):
     assert session["status"] == "active"
     assert session["learner_id"] == learner["id"]
     assert session["ended_at"] is None
-    assert session["messages"] == []
+    assert [(m["role"], m["content"]) for m in session["messages"]] == [
+        ("tutor", "Hi Alex! What do you already know about fractions?")
+    ]
 
 
-def test_topic_at_the_length_limit_is_accepted(client, make_learner):
+def test_the_opening_question_is_asked_with_the_tutor_prompt(client, fake_llm, start_session):
+    learner = client.post("/api/learners", json={"name": "Alex"}).json()
+
+    start_session(learner["id"], "Fractions")
+
+    [call] = fake_llm.calls
+    assert not call.json_mode
+    assert call.messages[0]["role"] == "system"
+    assert "Alex" in call.messages[0]["content"]
+    assert "Fractions" in call.messages[0]["content"]
+
+
+def test_llm_failure_on_start_saves_nothing(client, fake_llm, make_learner):
+    learner = make_learner()
+    fake_llm.chat_replies.append(LLMError("The AI provider took too long to answer."))
+
+    response = client.post(f"/api/learners/{learner['id']}/sessions", json={"topic": "Fractions"})
+
+    assert response.status_code == 502
+    assert response.json() == {"detail": "The AI provider took too long to answer."}
+    assert client.get(f"/api/learners/{learner['id']}/sessions").json() == []
+
+
+def test_session_started_elsewhere_during_the_opening_question_wins(
+    client, fake_llm, make_learner, db
+):
     learner = make_learner()
 
-    response = client.post(f"/api/learners/{learner['id']}/sessions", json={"topic": "x" * 120})
+    def another_start_finishes_first(messages):
+        db.execute(
+            "INSERT INTO sessions (learner_id, topic, created_at) VALUES (?, 'Algebra', ?)",
+            (learner["id"], "2026-01-01T00:00:00Z"),
+        )
+        return "What do you already know about fractions?"
 
-    assert response.status_code == 201
+    fake_llm.chat_replies.append(another_start_finishes_first)
+
+    response = client.post(f"/api/learners/{learner['id']}/sessions", json={"topic": "Fractions"})
+
+    assert response.status_code == 409
+    assert [row["topic"] for row in db.execute("SELECT topic FROM sessions")] == ["Algebra"]
+
+
+def test_topic_at_the_length_limit_is_accepted(client, make_learner, start_session):
+    learner = make_learner()
+
+    session = start_session(learner["id"], "x" * 120)
+
+    assert session["topic"] == "x" * 120
 
 
 def test_start_session_for_unknown_learner_returns_404(client):
