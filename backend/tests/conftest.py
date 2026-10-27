@@ -25,8 +25,11 @@ def settings(tmp_path: Path) -> Settings:
 
 
 @pytest.fixture
-def fake_llm() -> FakeLLMClient:
-    return FakeLLMClient()
+def fake_llm() -> Iterator[FakeLLMClient]:
+    fake = FakeLLMClient()
+    yield fake
+    # A leftover scripted reply means the code made fewer LLM calls than the test expected.
+    assert not fake.chat_replies and not fake.json_replies, "unused scripted LLM replies"
 
 
 @pytest.fixture

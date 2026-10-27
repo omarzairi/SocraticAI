@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from app.llm import LLMError
@@ -54,6 +56,39 @@ def test_the_tutor_sees_the_conversation_in_order(client, fake_llm, session):
         ("assistant", "Why do you add them?"),
         ("user", "Because that's how it works."),
     ]
+
+
+def test_the_tutor_only_sees_this_sessions_conversation(
+    client, fake_llm, session, make_learner, start_session
+):
+    fake_llm.chat_replies.append("Why?")
+    client.post(messages_url(session), json={"content": "Alex's private answer"})
+    sam = make_learner("Sam")
+    sams_session = start_session(sam["id"], "Algebra", opening="Hi Sam! What is x?")
+    fake_llm.chat_replies.append("How do you know?")
+
+    client.post(messages_url(sams_session), json={"content": "x is 3"})
+
+    last_call = fake_llm.chat_calls[-1]
+    assert "Sam" in last_call.messages[0]["content"]
+    assert "Algebra" in last_call.messages[0]["content"]
+    assert [(m["role"], m["content"]) for m in last_call.messages[2:]] == [
+        ("assistant", "Hi Sam! What is x?"),
+        ("user", "x is 3"),
+    ]
+
+
+def test_a_failed_save_keeps_neither_message(client, fake_llm, session, db):
+    db.execute(
+        "CREATE TRIGGER fail_on_boom BEFORE INSERT ON messages WHEN NEW.content = 'BOOM' "
+        "BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END"
+    )
+    fake_llm.chat_replies.append("BOOM")  # the learner message is written, then the reply fails
+
+    with pytest.raises(sqlite3.IntegrityError):
+        client.post(messages_url(session), json={"content": "I add them."})
+
+    assert stored_messages(client, session) == [("tutor", OPENING_QUESTION)]
 
 
 def test_llm_failure_saves_nothing(client, fake_llm, session):
@@ -160,6 +195,15 @@ def test_long_and_multi_line_messages_are_accepted(client, fake_llm, session, co
     fake_llm.chat_replies.append("Why?")
 
     assert client.post(messages_url(session), json={"content": content}).status_code == 201
+
+
+@pytest.mark.parametrize("bad_id", INVALID_IDS)
+def test_invalid_learner_id_on_messages_returns_422(client, session, bad_id):
+    response = client.post(
+        f"/api/learners/{bad_id}/sessions/{session['id']}/messages", json={"content": "Hi"}
+    )
+
+    assert response.status_code == 422
 
 
 @pytest.mark.parametrize("bad_id", INVALID_IDS)

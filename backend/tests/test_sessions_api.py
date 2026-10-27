@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from app.llm import LLMError
@@ -32,7 +34,7 @@ def test_the_opening_question_is_asked_with_the_tutor_prompt(client, fake_llm, s
 
     [call] = fake_llm.calls
     assert not call.json_mode
-    assert call.messages[0]["role"] == "system"
+    assert [message["role"] for message in call.messages] == ["system", "user"]
     assert "Alex" in call.messages[0]["content"]
     assert "Fractions" in call.messages[0]["content"]
 
@@ -45,6 +47,20 @@ def test_llm_failure_on_start_saves_nothing(client, fake_llm, make_learner):
 
     assert response.status_code == 502
     assert response.json() == {"detail": "The AI provider took too long to answer."}
+    assert client.get(f"/api/learners/{learner['id']}/sessions").json() == []
+
+
+def test_a_failed_save_on_start_leaves_no_session(client, fake_llm, make_learner, db):
+    learner = make_learner()
+    db.execute(
+        "CREATE TRIGGER fail_messages BEFORE INSERT ON messages "
+        "BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END"
+    )
+    fake_llm.chat_replies.append("Hi! What do you know about fractions?")
+
+    with pytest.raises(sqlite3.IntegrityError):
+        client.post(f"/api/learners/{learner['id']}/sessions", json={"topic": "Fractions"})
+
     assert client.get(f"/api/learners/{learner['id']}/sessions").json() == []
 
 

@@ -4,7 +4,12 @@ from string import Template
 import pytest
 
 from app.schemas import Learner, Message
-from app.services.prompt_builder import PROMPTS_DIR, build_tutor_messages, recent_history
+from app.services.prompt_builder import (
+    HISTORY_CHAR_BUDGET,
+    PROMPTS_DIR,
+    build_tutor_messages,
+    recent_history,
+)
 
 LEARNER = Learner(id=1, name="Alex", created_at="2026-01-01T00:00:00Z")
 
@@ -80,9 +85,19 @@ def test_trimmed_history_is_the_newest_part_and_starts_with_the_tutor(exchanges)
     assert kept[0].role == "tutor"
 
 
+def test_a_long_conversation_is_trimmed_before_it_is_sent():
+    history = conversation(exchanges=10, length=HISTORY_CHAR_BUDGET // 4)
+
+    sent = build_tutor_messages(LEARNER, "Fractions", history, new_message="Next")[2:-1]
+
+    assert sum(len(m["content"]) for m in sent) <= HISTORY_CHAR_BUDGET
+    assert sent[-1]["content"] == history[-1].content
+
+
 @pytest.mark.parametrize("exchanges", range(8))
 def test_roles_alternate_even_when_history_is_trimmed(exchanges):
-    history = conversation(exchanges, length=3_000)
+    # 1,000-character messages: the 8,000 budget keeps a window of several messages.
+    history = conversation(exchanges, length=1_000)
 
     messages = build_tutor_messages(LEARNER, "Fractions", history, new_message="Next")
 

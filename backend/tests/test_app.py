@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 
 from app import main
 
@@ -11,6 +12,20 @@ def test_building_the_app_does_not_read_settings(monkeypatch):
     monkeypatch.setattr(main, "Settings", fail_if_called)
 
     main.create_app()
+
+
+def test_without_an_api_key_the_real_client_returns_a_clear_502(settings):
+    # No fake here: this goes through the real client wiring, which fails before any network call.
+    app = main.create_app(settings.model_copy(update={"llm_api_key": SecretStr("")}))
+
+    with TestClient(app) as unconfigured:
+        learner = unconfigured.post("/api/learners", json={"name": "Alex"}).json()
+        url = f"/api/learners/{learner['id']}/sessions"
+        response = unconfigured.post(url, json={"topic": "Fractions"})
+
+        assert response.status_code == 502
+        assert "LLM_API_KEY" in response.json()["detail"]
+        assert unconfigured.get(url).json() == []
 
 
 def test_health(client):
