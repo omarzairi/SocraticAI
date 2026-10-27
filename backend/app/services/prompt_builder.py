@@ -1,14 +1,17 @@
+import json
 from pathlib import Path
 from string import Template
 
 from app.llm import ChatMessage
-from app.schemas import Learner, Message
+from app.schemas import MEMORY_KIND_DESCRIPTIONS, Learner, Memory, Message
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 # The free LLM tier limits tokens per minute, so only the latest part of a long conversation
 # is sent: about 8,000 characters, roughly 2,000 tokens.
 HISTORY_CHAR_BUDGET = 8_000
+# The memory extractor reads more of the session, but still within the token limit.
+TRANSCRIPT_CHAR_BUDGET = 12_000
 
 LLM_ROLES = {"learner": "user", "tutor": "assistant"}
 
@@ -34,6 +37,29 @@ def build_tutor_messages(
     if new_message is not None:
         messages.append({"role": "user", "content": new_message})
     return messages
+
+
+def build_extraction_messages(
+    topic: str, memories: list[Memory], history: list[Message]
+) -> list[ChatMessage]:
+    """The memory extractor's input: its rules, then the current memories and the transcript."""
+    kinds = "\n".join(f"- {kind}: {text}" for kind, text in MEMORY_KIND_DESCRIPTIONS.items())
+    current_memories = json.dumps(
+        [
+            {"id": m.id, "kind": m.kind, "content": m.content, "user_edited": m.user_edited}
+            for m in memories
+        ],
+        indent=2,
+    )
+    transcript = "\n".join(
+        f"{message.role.capitalize()}: {message.content}"
+        for message in recent_history(history, TRANSCRIPT_CHAR_BUDGET)
+    )
+    rules = load_prompt("memory_extraction").substitute(memory_kinds=kinds)
+    data = load_prompt("memory_extraction_input").substitute(
+        memories=current_memories, topic=topic, transcript=transcript
+    )
+    return [{"role": "system", "content": rules}, {"role": "user", "content": data}]
 
 
 def recent_history(history: list[Message], char_budget: int) -> list[Message]:
