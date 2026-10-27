@@ -119,12 +119,70 @@ def test_connection_failure_becomes_llm_error():
 
 @pytest.mark.parametrize("content", [None, "", "   "])
 def test_empty_reply_becomes_llm_error(content):
-    client = make_client(
-        lambda request: httpx2.Response(200, json=completion(content, finish_reason="length"))
-    )
+    client = make_client(lambda request: httpx2.Response(200, json=completion(content)))
 
     with pytest.raises(LLMError, match="empty reply"):
         client.complete(MESSAGES, temperature=0.7)
+
+
+@pytest.mark.parametrize("finish_reason", ["length", "content_filter"])
+def test_cut_off_reply_is_rejected_instead_of_saved(finish_reason):
+    client = make_client(
+        lambda request: httpx2.Response(
+            200, json=completion("Hi Alex! Before we start, tell me what", finish_reason)
+        )
+    )
+
+    with pytest.raises(LLMError, match="cut off"):
+        client.complete(MESSAGES, temperature=0.7)
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx2.Response(200, text="<html>Sign in to the Wi-Fi</html>"),
+        httpx2.Response(200, text='{"choices": [', headers={"content-type": "application/json"}),
+        httpx2.Response(200, json={**completion("Why?"), "choices": []}),
+    ],
+    ids=["html-page", "broken-json", "no-choices"],
+)
+def test_unreadable_reply_becomes_llm_error(response):
+    client = make_client(lambda request: response)
+
+    with pytest.raises(LLMError, match="unreadable reply"):
+        client.complete(MESSAGES, temperature=0.7)
+
+
+def test_unknown_model_points_to_the_settings():
+    client = make_client(
+        lambda request: httpx2.Response(404, json={"error": {"message": "model not found"}})
+    )
+
+    with pytest.raises(LLMError, match="LLM_MODEL"):
+        client.complete(MESSAGES, temperature=0.7)
+
+
+def test_the_configured_timeouts_are_used():
+    sent = {}
+
+    def handler(request):
+        sent.update(request.extensions["timeout"])
+        return httpx2.Response(200, json=completion("Why?"))
+
+    make_client(handler, llm_timeout_seconds=12.5).complete(MESSAGES, temperature=0.7)
+
+    assert sent["read"] == 12.5
+    assert sent["connect"] == 5.0
+
+
+def test_a_server_error_is_retried_once():
+    responses = [
+        httpx2.Response(500, json={"error": {"message": "busy"}}, headers={"retry-after-ms": "1"}),
+        httpx2.Response(200, json=completion("Why?")),
+    ]
+    client = make_client(lambda request: responses.pop(0), llm_max_retries=1)
+
+    assert client.complete(MESSAGES, temperature=0.7) == "Why?"
 
 
 def test_missing_api_key_fails_without_calling_the_provider():
@@ -139,7 +197,7 @@ def test_missing_api_key_fails_without_calling_the_provider():
     assert calls == []
 
 
-def test_the_api_key_never_appears_in_errors_or_settings():
+def test_the_api_key_never_appears_in_errors_or_logs(caplog):
     client = make_client(
         lambda request: httpx2.Response(401, json={"error": {"message": "Invalid API Key"}})
     )
@@ -148,4 +206,5 @@ def test_the_api_key_never_appears_in_errors_or_settings():
         client.complete(MESSAGES, temperature=0.7)
 
     assert API_KEY not in str(error.value)
-    assert API_KEY not in repr(client._settings)
+    assert "rejected the API key" in caplog.text
+    assert API_KEY not in caplog.text
