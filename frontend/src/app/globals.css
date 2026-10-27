@@ -1,26 +1,27 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Cool study paper, slate ink, the tutor's blue ink, and a highlighter for memory notes. */
+@theme {
+  --color-paper: #f3f5f7;
+  --color-card: #ffffff;
+  --color-ink: #1f2933;
+  --color-muted: #5b6b7e;
+  --color-line: #d9dfe6;
+  --color-tutor: #3b5bdb;
+  --color-tutor-soft: #e7ecfb;
+  --color-highlight: #ffe58f;
+  --color-danger: #c92a2a;
+  --font-serif: var(--font-literata), Georgia, serif;
+  --font-sans: var(--font-plex), system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-tutor);
+  outline-offset: 2px;
 }
