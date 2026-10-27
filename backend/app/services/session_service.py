@@ -27,6 +27,7 @@ def list_sessions(conn: sqlite3.Connection, learner_id: int) -> list[Session]:
 
 
 def get_session(conn: sqlite3.Connection, learner_id: int, session_id: int) -> Session:
+    learner_service.get_learner(conn, learner_id)  # a missing learner is reported as such
     session = session_repository.get_session(conn, learner_id, session_id)
     if session is None:
         raise NotFoundError(f"Session {session_id} not found.")

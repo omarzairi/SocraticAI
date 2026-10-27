@@ -84,6 +84,16 @@ def test_get_unknown_session_returns_404(client, make_learner):
     assert response.json() == {"detail": "Session 999 not found."}
 
 
+def test_session_of_unknown_learner_reports_the_learner(client, make_learner, start_session):
+    learner = make_learner()
+    session = start_session(learner["id"])
+
+    response = client.get(f"/api/learners/999/sessions/{session['id']}")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Learner 999 not found."}
+
+
 def test_session_of_another_learner_returns_404(client, make_learner, start_session):
     alex = make_learner("Alex")
     sam = make_learner("Sam")
