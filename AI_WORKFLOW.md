@@ -182,3 +182,15 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
     - **Missing tests:** one proves the memory list is scoped to its learner, another that a corrected memory personalizes the *next session*.
     - **Plan change, logged deliberately:** plan §5 marked learner-edited memories "(edited by the learner)" in the tutor prompt. That marker was removed in step 3, because CLAUDE.md keeps prompt wording out of Python. The tutor doesn't need it; the extractor still sees `user_edited`.
 34. **My own mistake:** a mutation command passed Python both a heredoc and `< /dev/null`. The second won, so Python read an empty script and hung in its interactive prompt. I stopped it and checked that nothing had changed.
+
+### Step 5: frontend and README
+
+35. **The scaffold's defaults were checked before use.**
+    - **What I did:** I checked `create-next-app --help` before scaffolding, because the docs and the CLI disagreed on some flags.
+    - **What I confirmed:** Cache Components stayed off; otherwise `useParams()` pages would fail at build time.
+36. **Lint caught a React 19 rule** (`react-hooks/set-state-in-effect`).
+    - **Problem:** two pages called a `load()` function that sets state from inside an effect.
+    - **Fix:** they now fetch inside the effect, with an `ignore` flag for stale responses, plus a version counter to re-fetch after a change. That is the same pattern the other pages already used. (`2e4d420`)
+37. **The reviewer agents were blocked again.**
+    - **What happened:** the auto-mode classifier blocked the frontend reviewer agent. I didn't retry it in other forms, and reviewed the frontend myself instead.
+    - **Bug found:** if ending a session failed with a 409 (already ended elsewhere), the UI still said "Your session is still open". That sentence now appears only for a 502. (`17c16af`)
