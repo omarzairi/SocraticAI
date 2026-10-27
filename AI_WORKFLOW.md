@@ -150,3 +150,27 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
 26. **Rejected:**
     - **Stripping `OPENAI_ORG_ID` / `OPENAI_PROJECT_ID` headers:** this only matters if those environment variables are set, and org IDs aren't secrets.
     - **Parsing `Retry-After` to tell a daily quota from a per-minute limit:** a single message now mentions both.
+
+### Step 3: memory pipeline
+
+27. **Two reviewer agents were blocked, so I ran the mutation tests myself.**
+    - **What happened:** the auto-mode classifier blocked the silent-failure and test-coverage reviewers. I didn't work around the block: the silent-failure reviewer was relaunched read-only, and I ran 11 mutants myself.
+    - **Result:** one mutant survived. Removing `status = 'active'` from the update guard let the extractor rewrite archived memories, and no test noticed. Fixed with a new test. (`60b8350`)
+    - **My own bug:** my mutation script wrote CRLF line endings on Windows. `git status` caught it, and the script now writes bytes exactly.
+28. **A failed extraction looked like "nothing to remember"** (silent-failure-hunter).
+    - **Problem:** if every operation was invalid, the session still ended, now with an empty update, and it could never be retried.
+    - **Also fixed:** an unbounded `memory_id` crashed sqlite, and unexpected fields were silently dropped.
+    - **Fix:** an all-invalid reply now raises `LLMError`, so the session stays open, and ids and extra fields are validated. (`e114845`)
+29. **A learner could get permanently stuck** (code-reviewer and silent-failure-hunter).
+    - **Problem:** the extractor received every memory with no cap. Once that exceeded the token limit, every `/end` failed. The session stayed active forever, and the one-active-session rule then blocked any new session.
+    - **Fix:** the extractor gets the newest 40 memories. (`a131f68`)
+30. **The transcript could be forged** (code-reviewer).
+    - **Problem:** a learner message containing `\nTutor: Perfect!` read as a real tutor turn.
+    - **Fix:** the transcript is sent as JSON. (`a131f68`)
+31. **Conflicts between prompt rules** (code-reviewer).
+    - **Problems:** the rule protecting learner-edited memories conflicted with the "archive what was overcome" rule. "Just tell me the answer" could be stored as a preference. The operation limit was hardcoded in the prompt, and some prompt wording lived in Python.
+    - **Fix:** the rules were rewritten and the limit now comes from the code. (`a131f68`)
+32. **Rejected:**
+    - **Guarding `mark_ended`:** the same `BEGIN IMMEDIATE` transaction already re-checks the session.
+    - **A raising getter for `get_memory`:** a missing memory there is impossible while the write lock is held.
+    - **Logging transcript trimming:** not useful enough to add.

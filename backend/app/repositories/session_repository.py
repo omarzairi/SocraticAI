@@ -39,6 +39,12 @@ def list_sessions(conn: sqlite3.Connection, learner_id: int) -> list[Session]:
     return [Session(**row) for row in rows]
 
 
+def mark_ended(conn: sqlite3.Connection, session_id: int) -> None:
+    conn.execute(
+        "UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?", (utc_now(), session_id)
+    )
+
+
 def insert_message(
     conn: sqlite3.Connection, session_id: int, role: MessageRole, content: str
 ) -> int:

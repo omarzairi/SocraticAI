@@ -36,7 +36,7 @@ def test_every_prompt_template_is_valid(path):
 
 
 def test_system_prompt_names_the_learner_and_the_topic():
-    system = build_tutor_messages(LEARNER, "Fractions", history=[])[0]
+    system = build_tutor_messages(LEARNER, "Fractions", [], history=[])[0]
 
     assert system["role"] == "system"
     assert "Alex" in system["content"]
@@ -44,7 +44,7 @@ def test_system_prompt_names_the_learner_and_the_topic():
 
 
 def test_a_new_session_starts_with_a_learner_request_for_the_topic():
-    messages = build_tutor_messages(LEARNER, "Fractions", history=[])
+    messages = build_tutor_messages(LEARNER, "Fractions", [], history=[])
 
     assert len(messages) == 2
     assert messages[1]["role"] == "user"
@@ -58,7 +58,7 @@ def test_history_uses_llm_roles_and_the_new_message_comes_last():
         message(3, "tutor", "What is half of 4?"),
     ]
 
-    messages = build_tutor_messages(LEARNER, "Fractions", history, new_message="2")
+    messages = build_tutor_messages(LEARNER, "Fractions", [], history, new_message="2")
 
     assert [(m["role"], m["content"]) for m in messages[2:]] == [
         ("assistant", "What do you already know?"),
@@ -88,7 +88,7 @@ def test_trimmed_history_is_the_newest_part_and_starts_with_the_tutor(exchanges)
 def test_a_long_conversation_is_trimmed_before_it_is_sent():
     history = conversation(exchanges=10, length=HISTORY_CHAR_BUDGET // 4)
 
-    sent = build_tutor_messages(LEARNER, "Fractions", history, new_message="Next")[2:-1]
+    sent = build_tutor_messages(LEARNER, "Fractions", [], history, new_message="Next")[2:-1]
 
     assert sum(len(m["content"]) for m in sent) <= HISTORY_CHAR_BUDGET
     assert sent[-1]["content"] == history[-1].content
@@ -99,7 +99,7 @@ def test_roles_alternate_even_when_history_is_trimmed(exchanges):
     # 1,000-character messages: the 8,000 budget keeps a window of several messages.
     history = conversation(exchanges, length=1_000)
 
-    messages = build_tutor_messages(LEARNER, "Fractions", history, new_message="Next")
+    messages = build_tutor_messages(LEARNER, "Fractions", [], history, new_message="Next")
 
     roles = [m["role"] for m in messages[1:]]
     assert all(current != following for current, following in pairwise(roles))

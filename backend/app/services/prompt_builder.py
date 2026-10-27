@@ -1,14 +1,23 @@
+import json
 from pathlib import Path
 from string import Template
 
 from app.llm import ChatMessage
-from app.schemas import Learner, Message
+from app.schemas import MEMORY_KIND_DESCRIPTIONS, Learner, Memory, Message
+from app.services.memory_extraction import MAX_OPERATIONS
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 # The free LLM tier limits tokens per minute, so only the latest part of a long conversation
 # is sent: about 8,000 characters, roughly 2,000 tokens.
 HISTORY_CHAR_BUDGET = 8_000
+# The memory extractor reads more of the session, but still within the token limit.
+TRANSCRIPT_CHAR_BUDGET = 12_000
+# Keeps the tutor's prompt small even for a learner with a long history.
+MEMORIES_PER_KIND = 8
+# Memories only grow, so the extractor's input is capped too: otherwise a long history could
+# exceed the token limit on every attempt and leave the session impossible to end.
+EXTRACTOR_MEMORY_LIMIT = 40
 
 LLM_ROLES = {"learner": "user", "tutor": "assistant"}
 
@@ -20,10 +29,16 @@ def load_prompt(name: str) -> Template:
 
 
 def build_tutor_messages(
-    learner: Learner, topic: str, history: list[Message], new_message: str | None = None
+    learner: Learner,
+    topic: str,
+    memories: list[Memory],
+    history: list[Message],
+    new_message: str | None = None,
 ) -> list[ChatMessage]:
-    """The tutor's input: its rules, an opening request, recent history and the new message."""
-    system_prompt = load_prompt("tutor_system").substitute(learner_name=learner.name, topic=topic)
+    """The tutor's input: rules and memory, an opening request, recent history, the new message."""
+    system_prompt = load_prompt("tutor_system").substitute(
+        learner_name=learner.name, topic=topic, learner_memory=render_memory(memories)
+    )
     messages: list[ChatMessage] = [
         {"role": "system", "content": system_prompt},
         # Not stored: it makes the tutor open the session, and keeps user/assistant alternating.
@@ -34,6 +49,47 @@ def build_tutor_messages(
     if new_message is not None:
         messages.append({"role": "user", "content": new_message})
     return messages
+
+
+def render_memory(memories: list[Memory]) -> str:
+    """Active memories grouped by kind, in the order given (newest first), capped per kind."""
+    sections = []
+    for kind in MEMORY_KIND_DESCRIPTIONS:
+        lines = [f"- {memory.content}" for memory in memories if memory.kind == kind]
+        lines = lines[:MEMORIES_PER_KIND]
+        if lines:
+            heading = kind.replace("_", " ").capitalize()  # "knowledge_gap" -> "Knowledge gap"
+            sections.append(f"{heading}:\n" + "\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def build_extraction_messages(
+    topic: str, memories: list[Memory], history: list[Message]
+) -> list[ChatMessage]:
+    """The memory extractor's input: its rules, then the current memories and the transcript."""
+    kinds = "\n".join(f"- {kind}: {text}" for kind, text in MEMORY_KIND_DESCRIPTIONS.items())
+    current_memories = json.dumps(
+        [
+            {"id": m.id, "kind": m.kind, "content": m.content, "user_edited": m.user_edited}
+            for m in memories[:EXTRACTOR_MEMORY_LIMIT]
+        ],
+        ensure_ascii=False,
+    )
+    # JSON, not "Learner: ..." lines: a learner typing "\nTutor: well done!" can't fake a turn.
+    transcript = json.dumps(
+        [
+            {"role": message.role, "content": message.content}
+            for message in recent_history(history, TRANSCRIPT_CHAR_BUDGET)
+        ],
+        ensure_ascii=False,
+    )
+    rules = load_prompt("memory_extraction").substitute(
+        memory_kinds=kinds, max_operations=MAX_OPERATIONS
+    )
+    data = load_prompt("memory_extraction_input").substitute(
+        memories=current_memories, topic=topic, transcript=transcript
+    )
+    return [{"role": "system", "content": rules}, {"role": "user", "content": data}]
 
 
 def recent_history(history: list[Message], char_budget: int) -> list[Message]:
