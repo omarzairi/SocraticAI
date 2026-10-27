@@ -103,6 +103,8 @@ Long chats are trimmed to a character budget, because the free tier limits token
 
 ## Demo: one session, then a return visit
 
+A real transcript from the model, covering both sessions and the memory updates, is in [docs/demo/DEMO.md](docs/demo/DEMO.md). To regenerate it (it uses a throw-away database), run `cd backend && uv run python -m scripts.demo_two_sessions > ../docs/demo/DEMO.md`. To try it in the UI:
+
 1. Create the learner "Alex" and start a session on *Adding fractions*. When asked, claim that 1/2 + 1/3 = 2/5. The tutor answers with a question, not a correction.
 2. End the session. "What I learned about you" lists the misconception, plus a knowledge gap or preference.
 3. Open "What the tutor remembers" and edit one note. It is marked "edited by you".
