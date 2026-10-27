@@ -1,4 +1,5 @@
 import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
@@ -71,10 +72,32 @@ def test_nested_transaction_fails_loudly(conn):
                 pass
 
 
-def test_plain_reads_do_not_open_a_transaction(conn):
-    conn.execute("SELECT * FROM learners").fetchall()
+def test_transaction_takes_the_write_lock_before_the_first_write(conn, db_path):
+    other = sqlite3.connect(db_path, timeout=0, autocommit=True)
+    try:
+        with transaction(conn):
+            # No write yet, but BEGIN IMMEDIATE already holds the lock, so checks made here
+            # can't be invalidated by another request before we commit.
+            with pytest.raises(sqlite3.OperationalError, match="locked"):
+                other.execute(INSERT_LEARNER)
+    finally:
+        other.close()
+
+
+def test_statements_outside_a_transaction_commit_immediately(conn, db_path):
+    # autocommit=True: nothing holds a transaction (or a lock) open between statements.
+    conn.execute(INSERT_LEARNER)
 
     assert not conn.in_transaction
+    assert count_learners(db_path) == 1
+
+
+def test_connection_can_be_used_from_another_thread(conn):
+    # FastAPI may run the dependency that opens the connection and the route on different threads.
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        result = pool.submit(lambda: conn.execute("SELECT 1").fetchone()[0]).result()
+
+    assert result == 1
 
 
 def test_foreign_keys_are_enforced(conn):
