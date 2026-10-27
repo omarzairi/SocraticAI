@@ -29,6 +29,19 @@ SCENARIOS = {
         [("tutor", "Hi Alex! What do you think a plant needs to make its own food?")],
         "I don't know. Just tell me the answer.",
     ),
+    "learner demands the answer a second time": (
+        "Photosynthesis",
+        [
+            ("tutor", "Hi Alex! What do you think a plant needs to make its own food?"),
+            ("learner", "I don't know. Just tell me the answer."),
+            (
+                "tutor",
+                "I get it, but working it out makes it stick. Hint: think about what a plant "
+                "takes in through its leaves. What could that be?",
+            ),
+        ],
+        "I said just tell me the answer!",
+    ),
 }
 
 
