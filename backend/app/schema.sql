@@ -39,5 +39,8 @@ CREATE TABLE IF NOT EXISTS memories (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_learner ON sessions (learner_id);
+-- At most one active session per learner: enforced here as well as in the service.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_one_active ON sessions (learner_id)
+    WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages (session_id);
 CREATE INDEX IF NOT EXISTS idx_memories_learner ON memories (learner_id);

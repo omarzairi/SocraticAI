@@ -100,6 +100,20 @@ def test_connection_can_be_used_from_another_thread(conn):
     assert result == 1
 
 
+def test_schema_allows_one_active_session_per_learner(conn):
+    conn.execute(INSERT_LEARNER)
+    insert_session = (
+        "INSERT INTO sessions (learner_id, topic, created_at) VALUES (1, 'Fractions', 'now')"
+    )
+    conn.execute(insert_session)
+
+    with pytest.raises(sqlite3.IntegrityError):
+        conn.execute(insert_session)
+
+    conn.execute("UPDATE sessions SET status = 'ended'")
+    conn.execute(insert_session)  # an ended session doesn't block a new one
+
+
 def test_foreign_keys_are_enforced(conn):
     with pytest.raises(sqlite3.IntegrityError):
         conn.execute(
