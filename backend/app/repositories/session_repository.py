@@ -1,7 +1,7 @@
 import sqlite3
 
 from app.database import utc_now
-from app.schemas import Message, Session
+from app.schemas import Message, MessageRole, Session
 
 SESSION_COLUMNS = "id, learner_id, topic, status, created_at, ended_at"
 MESSAGE_COLUMNS = "id, session_id, role, content, created_at"
@@ -37,6 +37,30 @@ def list_sessions(conn: sqlite3.Connection, learner_id: int) -> list[Session]:
         (learner_id,),
     ).fetchall()
     return [Session(**row) for row in rows]
+
+
+def insert_message(
+    conn: sqlite3.Connection, session_id: int, role: MessageRole, content: str
+) -> int:
+    cursor = conn.execute(
+        "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+        (session_id, role, content, utc_now()),
+    )
+    return cursor.lastrowid
+
+
+def count_messages(conn: sqlite3.Connection, session_id: int) -> int:
+    return conn.execute(
+        "SELECT count(*) FROM messages WHERE session_id = ?", (session_id,)
+    ).fetchone()[0]
+
+
+def get_message(conn: sqlite3.Connection, message_id: int) -> Message:
+    """A message that is known to exist (used right after inserting it)."""
+    row = conn.execute(
+        f"SELECT {MESSAGE_COLUMNS} FROM messages WHERE id = ?", (message_id,)
+    ).fetchone()
+    return Message(**row)
 
 
 def list_messages(conn: sqlite3.Connection, session_id: int) -> list[Message]:

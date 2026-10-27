@@ -32,6 +32,22 @@ def test_misspelled_setting_in_env_file_is_rejected(tmp_path):
         Settings(_env_file=env_file)
 
 
+def test_api_key_is_stripped_and_hidden_from_reprs():
+    settings = Settings(_env_file=None, llm_api_key="  sk-abc123  ")
+
+    assert settings.llm_api_key.get_secret_value() == "sk-abc123"
+    assert "sk-abc123" not in repr(settings)
+
+
+@pytest.mark.parametrize("bad_key", ["sk-abc”123", "sk-abc 123", "sk-​abc"])
+def test_api_key_with_pasted_junk_is_rejected_without_echoing_it(bad_key):
+    with pytest.raises(ValidationError) as error:
+        Settings(_env_file=None, llm_api_key=bad_key)
+
+    assert "LLM_API_KEY" in str(error.value)
+    assert bad_key not in str(error.value)
+
+
 def test_misspelled_setting_argument_is_rejected(tmp_path):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, databse_path=tmp_path / "typo.db")

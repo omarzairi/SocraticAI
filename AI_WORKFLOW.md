@@ -112,3 +112,41 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
 16. **A guardrail was respected, not bypassed.**
     - **What happened:** my Claude Code settings deny reading `.env.*` files, to protect secrets. That rule also blocks writing `.env.example`.
     - **What the agent did:** it didn't work around the rule through the shell. It stopped and asked me how I wanted to handle it.
+
+### Step 2: Socratic chat
+
+17. **The server would have crashed without an API key** (caught by a generated test).
+    - **Problem:** openai SDK 3.x raises an error when the client is created without a key. The plan says the server starts without one and tutor calls return a clear 502.
+    - **Fix:** pass a placeholder key, which is never sent, because `complete()` refuses to call the provider until a real key is set. (`c7dfe02`)
+18. **Cut-off replies were saved as complete** (silent-failure-hunter, reproduced).
+    - **Example:** the stored opening read "Hi Alex! Before we start, tell me what you think a".
+    - **Fix:** a reply with `finish_reason` of `length` or `content_filter` now raises "The tutor's reply was cut off". (`5cf55c0`)
+19. **Odd provider responses became opaque 500s** (silent-failure-hunter, reproduced).
+    - **Problem:** a non-JSON 200 (a captive portal, say), a broken JSON body, or a pasted key containing a smart quote all escaped as a 500. A 500 carries no CORS headers, so the UI could only say "server unreachable".
+    - **Fix:** the client checks the response's shape and raises `LLMError` (a 502) instead. The key is validated at startup, and validation errors never echo input values. (`5cf55c0`, `a553729`)
+20. **A single request could hang for about 5 minutes** (silent-failure-hunter).
+    - **Problem:** a plain float timeout also raised the connect timeout to 30 s, and two SDK retries could each wait for `Retry-After` up to 120 s.
+    - **Fix:** a 5 s connect timeout and a single retry. (`5cf55c0`, `a553729`)
+21. **Two tabs could interleave one conversation** (code-reviewer and silent-failure-hunter).
+    - **Problem:** the re-check after the LLM call only looked at the session's status. A reply could be saved although it had never seen the other tab's turn.
+    - **Fix:** also re-check the message count, plus a race test. (`db21ee8`)
+22. **A loophole in the Socratic prompt** (code-reviewer).
+    - **Problems:**
+      - "Give the answer if they ask more than once" let a learner skip all effort by asking twice.
+      - Demands for the answer had no guidance.
+      - "At most one question" allowed replies with no question.
+      - Markdown and LaTeX would show up as raw symbols in a plain-text chat.
+    - **Fix:** all four rules rewritten. (`a9d6837`)
+    - **Still to do:** check against the real model with `scripts/try_tutor.py` once the API key is configured.
+23. **Prompt edits were silently ignored in development** (code-reviewer).
+    - **Problem:** `@cache` kept the first version of a prompt in memory, and `fastapi dev` only reloads on `.py` changes.
+    - **Fix:** remove the cache. (`918cb4b`)
+24. **Mutation testing, round 2** (pr-test-analyzer).
+    - **Result:** 58 mutants, 16 meaningful survivors. For example: history not scoped to its session, the learner's message saved without the reply, a long chat sent untrimmed, and the real client wiring never exercised.
+    - **Fix:** tests for each. Atomicity is proven with a SQLite trigger that makes the second insert fail. The fake LLM now also fails a test that leaves scripted replies unused. (`c4b1383`)
+25. **My own mistakes in this step:**
+    - A mutation-check command hung because of a stray `python3 -`, which on Windows is a Store alias waiting for input. The `git checkout` chained after it would have reverted uncommitted work. It never ran, and mutation checks now back up and restore the file instead.
+    - A race test inserted `created_at='now'`, which the app (correctly) refused to parse.
+26. **Rejected:**
+    - **Stripping `OPENAI_ORG_ID` / `OPENAI_PROJECT_ID` headers:** this only matters if those environment variables are set, and org IDs aren't secrets.
+    - **Parsing `Retry-After` to tell a daily quota from a per-minute limit:** a single message now mentions both.

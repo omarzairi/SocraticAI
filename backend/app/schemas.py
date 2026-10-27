@@ -12,6 +12,10 @@ LearnerName = Annotated[
 Topic = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120, pattern=SINGLE_LINE)
 ]
+# Learner messages may span several lines (working through steps, for example).
+MessageContent = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+]
 
 SessionStatus = Literal["active", "ended"]
 MessageRole = Literal["learner", "tutor"]
@@ -29,6 +33,10 @@ class LearnerCreate(RequestBody):
 
 class SessionCreate(RequestBody):
     topic: Topic
+
+
+class MessageCreate(RequestBody):
+    content: MessageContent
 
 
 class Learner(BaseModel):
@@ -56,3 +64,8 @@ class Message(BaseModel):
 
 class SessionDetail(Session):
     messages: list[Message]
+
+
+class ChatTurn(BaseModel):
+    learner_message: Message
+    tutor_message: Message

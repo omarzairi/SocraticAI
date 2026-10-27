@@ -6,6 +6,7 @@ from fastapi import Depends, Path, Request
 
 from app.config import Settings
 from app.database import connect
+from app.llm import LLMClient
 
 SQLITE_MAX_INTEGER = 2**63 - 1
 
@@ -29,7 +30,13 @@ def get_connection(
         conn.close()
 
 
+def get_llm_client(request: Request) -> LLMClient:
+    """The client built at startup. Tests override this dependency with a fake."""
+    return request.app.state.llm_client
+
+
 DbConn = Annotated[sqlite3.Connection, Depends(get_connection)]
+Llm = Annotated[LLMClient, Depends(get_llm_client)]
 
 # Path ids must fit in a SQLite INTEGER; a larger value would make sqlite3 raise a 500.
 Id = Annotated[int, Path(ge=1, le=SQLITE_MAX_INTEGER)]
