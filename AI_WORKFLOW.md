@@ -216,3 +216,17 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
     - **Problem:** the extractor saved "the learner can compare the sum to a whole" from a question the *tutor* asked and the learner never answered.
     - **Fix:** the rule now says every memory must come from the learner's own messages. On the re-run, every note was grounded in what Alex wrote.
     - **Variability between runs:** the first run archived both the misconception and the gap once Alex got the answer right. The second run archived only the gap and kept the misconception. The tutor re-checks old misconceptions anyway, so this is safe. The transcript in `docs/demo/DEMO.md` is the second run, shown as it came out.
+
+### Polish and the demo video
+
+41. **Improvements after the live demo:**
+    - The chat now keeps the newest message in view. (`d69150a`)
+    - The extractor rule was changed to "archive every related mistake once the learner gets it right". (`1f61392`)
+42. **A regression I introduced, then caught with the live model.**
+    - **Problem:** my evidence rule ("a question the learner didn't answer shows nothing") made the extractor record nothing whenever a session ended on a tutor question, and every session ends that way. Session 2 never archived the overcome misconception.
+    - **How I found it:** I called the extractor directly with session 2's exact inputs. It worked in isolation, which pointed at how the model read the wording rather than at the code.
+    - **Fix:** the rule now says what *is* evidence ("a correct calculation is evidence of progress"). Verified live: progress is created and both old mistakes are archived.
+43. **The first video recording failed.**
+    - **Cause:** the dev server from an earlier smoke test still held port 3000. Stopping its task killed `npm` but not the Next.js child process, so the production server couldn't start (`EADDRINUSE`).
+    - **Fix:** free the ports and reset the demo database before recording.
+    - **Video:** `docs/demo/socratic-demo.webm`, recorded with `frontend/scripts/record-demo.mjs`.
