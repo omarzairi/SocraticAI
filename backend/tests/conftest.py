@@ -16,5 +16,6 @@ def settings(tmp_path: Path) -> Settings:
 
 @pytest.fixture
 def client(settings: Settings) -> Iterator[TestClient]:
+    # Using TestClient as a context manager runs the lifespan, which creates the database.
     with TestClient(create_app(settings)) as test_client:
         yield test_client

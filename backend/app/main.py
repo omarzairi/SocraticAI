@@ -1,7 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings
+from app.database import init_db
 
 # The Next.js dev server, reachable under both names.
 FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -11,7 +14,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the app. Tests pass their own settings; the server uses .env and defaults."""
     settings = settings or Settings()
 
-    app = FastAPI(title="SocraticAI")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        init_db(settings.database_path)
+        yield
+
+    app = FastAPI(title="SocraticAI", lifespan=lifespan)
     app.state.settings = settings
 
     # allow_methods defaults to GET only, which would block POST, PATCH and DELETE preflights.
