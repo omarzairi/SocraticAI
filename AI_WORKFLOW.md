@@ -69,3 +69,46 @@ Each entry records what was generated, the problem, how it was caught, and the f
 8. **Rejected suggestion.**
    - **Proposed:** a `memory_changes` audit table, so revisiting an old session could show what memory it changed.
    - **Decision:** deferred to "with more time". It's useful but not required, and the end-of-session summary card already shows memory changes for the demo.
+
+### Step 1: backend skeleton and sessions
+
+The step was built in 4 commits, each of which passes its own tests. Then `silent-failure-hunter`, `pr-test-analyzer` and `code-reviewer` reviewed the diff.
+
+9. **A generated test checked a format instead of a property.**
+   - **Generated:** `assert created_at.endswith("+00:00")`.
+   - **Problem:** Pydantic writes UTC as `Z`. What matters is that the timestamp carries a timezone, because browsers read a timestamp without one as local time.
+   - **Caught by:** running the tests.
+   - **Fix:** parse the timestamp and assert `tzinfo is not None`.
+10. **`transaction()` could hide the real database error** (silent-failure-hunter).
+    - **Generated:** `except: ROLLBACK; raise`.
+    - **Problem:** sometimes SQLite has already rolled back on its own (disk full, `INSERT OR ROLLBACK`). The helper's ROLLBACK then raised "cannot rollback - no transaction is active", which replaced the real error. A failed COMMIT also left the transaction open.
+    - **Fix:**
+      - COMMIT now runs inside the `try`, and ROLLBACK runs only `if conn.in_transaction`. This is the same approach as CPython's `Connection.__exit__`.
+      - A regression test was confirmed to fail on the old code. (`137d5d6`)
+11. **A typo in a setting silently fell back to the default database** (silent-failure-hunter).
+    - **Generated:** `SettingsConfigDict(extra="ignore")`.
+    - **Problem:** `DATABSE_PATH=…` in `.env`, or a misspelled keyword in a test, silently used `backend/data/app.db`. In tests that would mean the developer's real data. Also, `~` wasn't expanded, and a path pointing to a folder gave a cryptic error.
+    - **Fix:** unknown keys are rejected (pydantic-settings' default, `forbid`), `~` is expanded, folders are rejected, and the resolved database path is logged at startup. (`5d62239`)
+12. **Importing the app read the developer's `.env`** (pr-test-analyzer).
+    - **Problem:** the module-level `app = create_app()` built `Settings()` while pytest was collecting tests.
+    - **Fix:** settings are now created when the server starts, in the lifespan. A test makes sure building the app doesn't read them. (`ab33f13`)
+13. **Tests that still passed on broken code** (pr-test-analyzer, mutation testing).
+    - **How it was found:** the reviewer made 17 small deliberate bugs ("mutants") and 10 were not caught. Examples:
+      - With `WHERE learner_id = ?` removed from the session list, one learner would see another's sessions.
+      - Plain `BEGIN` instead of `BEGIN IMMEDIATE`.
+      - With `check_same_thread=False` removed, 358 of 400 concurrent requests failed in the reviewer's probe.
+      - An id limit of `2**64`.
+      - A schema that drops tables on startup.
+      - A missing CORS origin.
+    - **Fix:** a test for each case. I re-ran the mutants to confirm every one is now caught. (`e13d3cb`, `54a336a`)
+14. **Smaller fixes:**
+    - The one-active-session rule is now also enforced by a partial unique index in the database. (`79211ce`)
+    - A missing learner was reported as "Session … not found". (`1187da0`)
+    - **CLAUDE.md overstated a rule** (code-reviewer). It said every query filters by `learner_id`, but messages are scoped through their session. I made the rule precise instead of adding a needless JOIN. (`a76b2f4`)
+15. **Rejected or deferred:**
+    - **Schema versioning with `PRAGMA user_version`:** there are no migrations by design, and the README documents resetting `app.db` after a schema change.
+    - **A monkeypatch-based race test for two concurrent session starts:** deferred to step 2. There, the LLM call between the check and the insert allows a deterministic race test with the fake LLM, and the unique index already enforces the rule.
+    - **Logging 404/409 responses:** these are client errors, not system failures, and the access log already records them.
+16. **A guardrail was respected, not bypassed.**
+    - **What happened:** my Claude Code settings deny reading `.env.*` files, to protect secrets. That rule also blocks writing `.env.example`.
+    - **What the agent did:** it didn't work around the rule through the shell. It stopped and asked me how I wanted to handle it.
