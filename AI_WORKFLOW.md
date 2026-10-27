@@ -210,5 +210,5 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
       - Over 2 full runs, every reply had exactly one question.
       - The misconception got a real counter-example: "If you tried 1/2 + 1/4 by adding the tops and bottoms… is that larger or smaller than each original fraction?"
       - Learners who demanded the answer still never got it.
-    - (`b8e…`, see the git log for `fix(prompts): surface misconceptions`)
+    - (`f2de3f2`)
 39. **A Windows-only crash in my own script.** `try_tutor.py` crashed printing the model's narrow no-break space, because the Windows console uses cp1252. It now writes UTF-8 to stdout.
