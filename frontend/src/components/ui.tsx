@@ -26,7 +26,7 @@ export function LearnerNav({ learnerId }: { learnerId: number }) {
 }
 
 export const buttonClass =
-  "rounded bg-tutor px-4 py-2 font-medium text-white hover:bg-tutor/90 disabled:opacity-50";
+  "shrink-0 whitespace-nowrap rounded bg-tutor px-4 py-2 font-medium text-white hover:bg-tutor/90 disabled:opacity-50";
 export const quietButtonClass =
   "rounded border border-line bg-card px-3 py-1.5 text-sm hover:border-tutor disabled:opacity-50";
 export const inputClass =
