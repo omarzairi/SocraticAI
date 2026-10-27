@@ -276,6 +276,31 @@ def test_memory_evolves_across_sessions(client, fake_llm, learner, start_session
     ]
 
 
+def test_memories_personalize_later_sessions_and_archived_ones_drop_out(
+    client, fake_llm, learner, start_session, chat
+):
+    first = start_session(learner["id"], "Fractions")
+    chat(first, "1/2 + 1/3 = 2/5")
+    fake_llm.json_replies.append(extraction(create("misconception", MISCONCEPTION)))
+    misconception_id = end(client, first).json()["memory_update"]["created"][0]["id"]
+
+    second = start_session(learner["id"], "Fractions")
+    assert MISCONCEPTION in fake_llm.chat_calls[-1].messages[0]["content"]  # opening question
+    chat(second, "1/2 + 1/3 = 5/6")
+    assert MISCONCEPTION in fake_llm.chat_calls[-1].messages[0]["content"]  # every reply
+    fake_llm.json_replies.append(
+        extraction(
+            {"action": "archive", "memory_id": misconception_id}, create("progress", PROGRESS)
+        )
+    )
+    end(client, second)
+
+    start_session(learner["id"], "Fractions")
+    system_prompt = fake_llm.chat_calls[-1].messages[0]["content"]
+    assert PROGRESS in system_prompt
+    assert MISCONCEPTION not in system_prompt
+
+
 def test_ending_an_unknown_session_returns_404(client, learner):
     assert client.post(f"/api/learners/{learner['id']}/sessions/999/end").status_code == 404
 

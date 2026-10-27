@@ -56,7 +56,7 @@ def to_messages(history: list[tuple[str, str]]) -> list[Message]:
 def main() -> None:
     llm = OpenAICompatibleClient(Settings())
     for name, (topic, history, new_message) in SCENARIOS.items():
-        messages = build_tutor_messages(LEARNER, topic, to_messages(history), new_message)
+        messages = build_tutor_messages(LEARNER, topic, [], to_messages(history), new_message)
         try:
             reply = llm.complete(messages, temperature=TUTOR_TEMPERATURE)
         except LLMError as error:

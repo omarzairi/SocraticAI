@@ -19,8 +19,9 @@ def start_session(
     """Create a session with the tutor's opening question. Nothing is saved if the LLM fails."""
     learner = learner_service.get_learner(conn, learner_id)
     _ensure_no_active_session(conn, learner_id)  # fail fast, before calling the LLM
+    memories = memory_repository.list_active_memories(conn, learner_id)
     opening = llm.complete(
-        prompt_builder.build_tutor_messages(learner, topic, history=[]),
+        prompt_builder.build_tutor_messages(learner, topic, memories, history=[]),
         temperature=TUTOR_TEMPERATURE,
     )
     with transaction(conn):
@@ -39,8 +40,12 @@ def send_message(
     session = get_session(conn, learner_id, session_id)
     _ensure_active(session)
     history = session_repository.list_messages(conn, session_id)
+    # Read on every turn, so a memory the learner edits applies from their next message.
+    memories = memory_repository.list_active_memories(conn, learner_id)
     reply = llm.complete(
-        prompt_builder.build_tutor_messages(learner, session.topic, history, new_message=content),
+        prompt_builder.build_tutor_messages(
+            learner, session.topic, memories, history, new_message=content
+        ),
         temperature=TUTOR_TEMPERATURE,
     )
     with transaction(conn):

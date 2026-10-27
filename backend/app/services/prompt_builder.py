@@ -12,6 +12,8 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 HISTORY_CHAR_BUDGET = 8_000
 # The memory extractor reads more of the session, but still within the token limit.
 TRANSCRIPT_CHAR_BUDGET = 12_000
+# Keeps the tutor's prompt small even for a learner with a long history.
+MEMORIES_PER_KIND = 8
 
 LLM_ROLES = {"learner": "user", "tutor": "assistant"}
 
@@ -23,10 +25,16 @@ def load_prompt(name: str) -> Template:
 
 
 def build_tutor_messages(
-    learner: Learner, topic: str, history: list[Message], new_message: str | None = None
+    learner: Learner,
+    topic: str,
+    memories: list[Memory],
+    history: list[Message],
+    new_message: str | None = None,
 ) -> list[ChatMessage]:
-    """The tutor's input: its rules, an opening request, recent history and the new message."""
-    system_prompt = load_prompt("tutor_system").substitute(learner_name=learner.name, topic=topic)
+    """The tutor's input: rules and memory, an opening request, recent history, the new message."""
+    system_prompt = load_prompt("tutor_system").substitute(
+        learner_name=learner.name, topic=topic, learner_memory=render_memory(memories)
+    )
     messages: list[ChatMessage] = [
         {"role": "system", "content": system_prompt},
         # Not stored: it makes the tutor open the session, and keeps user/assistant alternating.
@@ -37,6 +45,23 @@ def build_tutor_messages(
     if new_message is not None:
         messages.append({"role": "user", "content": new_message})
     return messages
+
+
+def render_memory(memories: list[Memory]) -> str:
+    """Active memories grouped by kind, in the order given (newest first), capped per kind."""
+    if not memories:
+        return "New learner: no memories yet."
+    sections = []
+    for kind in MEMORY_KIND_DESCRIPTIONS:
+        lines = [
+            f"- {memory.content}" + (" (edited by the learner)" if memory.user_edited else "")
+            for memory in memories
+            if memory.kind == kind
+        ][:MEMORIES_PER_KIND]
+        if lines:
+            heading = kind.replace("_", " ").capitalize()  # "knowledge_gap" -> "Knowledge gap"
+            sections.append(f"{heading}:\n" + "\n".join(lines))
+    return "\n\n".join(sections)
 
 
 def build_extraction_messages(
