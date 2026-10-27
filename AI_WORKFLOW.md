@@ -174,3 +174,11 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
     - **Guarding `mark_ended`:** the same `BEGIN IMMEDIATE` transaction already re-checks the session.
     - **A raising getter for `get_memory`:** a missing memory there is impossible while the write lock is held.
     - **Logging transcript trimming:** not useful enough to add.
+
+### Step 4: memory management API
+
+33. **Review fixes** (code-reviewer):
+    - **A PATCH could return a 500.** It read the memory after committing, so a delete from another tab could slip in between. The read now happens inside the transaction.
+    - **Missing tests:** one proves the memory list is scoped to its learner, another that a corrected memory personalizes the *next session*.
+    - **Plan change, logged deliberately:** plan §5 marked learner-edited memories "(edited by the learner)" in the tutor prompt. That marker was removed in step 3, because CLAUDE.md keeps prompt wording out of Python. The tutor doesn't need it; the extractor still sees `user_edited`.
+34. **My own mistake:** a mutation command passed Python both a heredoc and `< /dev/null`. The second won, so Python read an empty script and hung in its interactive prompt. I stopped it and checked that nothing had changed.
