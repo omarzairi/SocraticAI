@@ -6,6 +6,7 @@ Run from backend/ (needs LLM_API_KEY in backend/.env):
 This is not part of the test suite: real model output varies, so it can't be asserted on.
 """
 
+import sys
 from datetime import UTC, datetime
 
 from app.config import Settings
@@ -54,6 +55,9 @@ def to_messages(history: list[tuple[str, str]]) -> list[Message]:
 
 
 def main() -> None:
+    # The Windows console defaults to cp1252, which can't print characters the model uses
+    # (e.g. a narrow no-break space).
+    sys.stdout.reconfigure(encoding="utf-8")
     llm = OpenAICompatibleClient(Settings())
     for name, (topic, history, new_message) in SCENARIOS.items():
         messages = build_tutor_messages(LEARNER, topic, [], to_messages(history), new_message)
