@@ -212,3 +212,7 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
       - Learners who demanded the answer still never got it.
     - (`f2de3f2`)
 39. **A Windows-only crash in my own script.** `try_tutor.py` crashed printing the model's narrow no-break space, because the Windows console uses cp1252. It now writes UTF-8 to stdout.
+40. **The live demo caught an extractor hallucination.**
+    - **Problem:** the extractor saved "the learner can compare the sum to a whole" from a question the *tutor* asked and the learner never answered.
+    - **Fix:** the rule now says every memory must come from the learner's own messages. On the re-run, every note was grounded in what Alex wrote.
+    - **Variability between runs:** the first run archived both the misconception and the gap once Alex got the answer right. The second run archived only the gap and kept the misconception. The tutor re-checks old misconceptions anyway, so this is safe. The transcript in `docs/demo/DEMO.md` is the second run, shown as it came out.
