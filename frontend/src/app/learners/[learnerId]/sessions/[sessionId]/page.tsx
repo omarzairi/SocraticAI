@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ErrorBanner, LearnerNav, buttonClass, quietButtonClass } from "@/components/ui";
-import { api, errorText } from "@/lib/api";
+import { ApiError, api, errorText } from "@/lib/api";
 import { MEMORY_KIND_LABELS, type MemoryUpdate, type SessionDetail } from "@/lib/types";
 
 export default function ChatPage() {
@@ -52,7 +52,9 @@ export default function ChatPage() {
       setSession(await api.getSession(learnerId, sessionId));
       setMemoryUpdate(result.memory_update);
     } catch (err) {
-      setError(`${errorText(err)} Your session is still open.`);
+      // 502: the memory update failed and nothing changed, so the learner can simply retry.
+      const stillOpen = err instanceof ApiError && err.status === 502;
+      setError(stillOpen ? `${errorText(err)} Your session is still open.` : errorText(err));
     } finally {
       setBusy(null);
     }
