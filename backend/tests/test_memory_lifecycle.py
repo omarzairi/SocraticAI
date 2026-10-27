@@ -219,6 +219,23 @@ def test_operations_on_unknown_or_another_learners_memories_are_skipped(
     assert body["memory_update"]["updated"] == body["memory_update"]["archived"] == []
 
 
+def test_the_extractor_cannot_rewrite_an_archived_memory(
+    client, fake_llm, learner, start_session, chat, db
+):
+    memory_id = add_memory(db, learner["id"], "misconception", MISCONCEPTION)
+    db.execute("UPDATE memories SET status = 'archived' WHERE id = ?", (memory_id,))
+    session = start_session(learner["id"])
+    chat(session, "Hello")
+    fake_llm.json_replies.append(
+        extraction({"action": "update", "memory_id": memory_id, "content": "Rewritten."})
+    )
+
+    body = end(client, session).json()
+
+    assert body["memory_update"]["updated"] == []
+    assert memories(db, learner["id"])[0]["content"] == MISCONCEPTION
+
+
 def test_a_duplicate_memory_is_not_created(client, fake_llm, learner, start_session, chat, db):
     add_memory(db, learner["id"], "knowledge_gap", GAP)
     session = start_session(learner["id"])
