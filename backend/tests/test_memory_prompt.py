@@ -18,11 +18,11 @@ def memory(memory_id: int, kind: str, content: str, user_edited: bool = False) -
     )
 
 
-def test_a_new_learner_has_no_memories():
-    assert render_memory([]) == "New learner: no memories yet."
+def test_a_new_learner_has_an_empty_memory_block():
+    assert render_memory([]) == ""
 
 
-def test_memories_are_grouped_by_kind_and_learner_edits_are_marked():
+def test_memories_are_grouped_by_kind():
     text = render_memory(
         [
             memory(1, "preference", "Likes pizza examples.", user_edited=True),
@@ -31,8 +31,7 @@ def test_memories_are_grouped_by_kind_and_learner_edits_are_marked():
     )
 
     assert text == (
-        "Misconception:\n- Adds the denominators.\n\n"
-        "Preference:\n- Likes pizza examples. (edited by the learner)"
+        "Misconception:\n- Adds the denominators.\n\nPreference:\n- Likes pizza examples."
     )
 
 

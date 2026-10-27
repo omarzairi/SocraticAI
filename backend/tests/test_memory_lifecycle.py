@@ -94,7 +94,7 @@ def test_the_extractor_sees_the_transcript_and_the_current_memories(
     [call] = [call for call in fake_llm.calls if call.json_mode]
     rules, data = call.messages[0]["content"], call.messages[1]["content"]
     assert "misconception: a specific incorrect belief" in rules
-    assert "Learner: I add the tops and the bottoms." in data
+    assert '{"role": "learner", "content": "I add the tops and the bottoms."}' in data
     assert "The learner likes pizza examples." in data
     assert '"user_edited": false' in data
 

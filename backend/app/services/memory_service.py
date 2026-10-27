@@ -27,7 +27,14 @@ def apply_operations(
         _normalize(memory.content)
         for memory in memory_repository.list_active_memories(conn, learner_id)
     }
+    touched_ids: set[int] = set()
     for operation in operations:
+        if isinstance(operation, UpdateOperation | ArchiveOperation):
+            # A second operation on the same memory would make the response contradictory.
+            if operation.memory_id in touched_ids:
+                logger.warning("Skipping a second operation on memory %s", operation.memory_id)
+                continue
+            touched_ids.add(operation.memory_id)
         match operation:
             case CreateOperation(kind=kind, content=content):
                 if _normalize(content) in known:

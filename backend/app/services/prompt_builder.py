@@ -4,6 +4,7 @@ from string import Template
 
 from app.llm import ChatMessage
 from app.schemas import MEMORY_KIND_DESCRIPTIONS, Learner, Memory, Message
+from app.services.memory_extraction import MAX_OPERATIONS
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
@@ -14,6 +15,9 @@ HISTORY_CHAR_BUDGET = 8_000
 TRANSCRIPT_CHAR_BUDGET = 12_000
 # Keeps the tutor's prompt small even for a learner with a long history.
 MEMORIES_PER_KIND = 8
+# Memories only grow, so the extractor's input is capped too: otherwise a long history could
+# exceed the token limit on every attempt and leave the session impossible to end.
+EXTRACTOR_MEMORY_LIMIT = 40
 
 LLM_ROLES = {"learner": "user", "tutor": "assistant"}
 
@@ -49,15 +53,10 @@ def build_tutor_messages(
 
 def render_memory(memories: list[Memory]) -> str:
     """Active memories grouped by kind, in the order given (newest first), capped per kind."""
-    if not memories:
-        return "New learner: no memories yet."
     sections = []
     for kind in MEMORY_KIND_DESCRIPTIONS:
-        lines = [
-            f"- {memory.content}" + (" (edited by the learner)" if memory.user_edited else "")
-            for memory in memories
-            if memory.kind == kind
-        ][:MEMORIES_PER_KIND]
+        lines = [f"- {memory.content}" for memory in memories if memory.kind == kind]
+        lines = lines[:MEMORIES_PER_KIND]
         if lines:
             heading = kind.replace("_", " ").capitalize()  # "knowledge_gap" -> "Knowledge gap"
             sections.append(f"{heading}:\n" + "\n".join(lines))
@@ -72,15 +71,21 @@ def build_extraction_messages(
     current_memories = json.dumps(
         [
             {"id": m.id, "kind": m.kind, "content": m.content, "user_edited": m.user_edited}
-            for m in memories
+            for m in memories[:EXTRACTOR_MEMORY_LIMIT]
         ],
-        indent=2,
+        ensure_ascii=False,
     )
-    transcript = "\n".join(
-        f"{message.role.capitalize()}: {message.content}"
-        for message in recent_history(history, TRANSCRIPT_CHAR_BUDGET)
+    # JSON, not "Learner: ..." lines: a learner typing "\nTutor: well done!" can't fake a turn.
+    transcript = json.dumps(
+        [
+            {"role": message.role, "content": message.content}
+            for message in recent_history(history, TRANSCRIPT_CHAR_BUDGET)
+        ],
+        ensure_ascii=False,
     )
-    rules = load_prompt("memory_extraction").substitute(memory_kinds=kinds)
+    rules = load_prompt("memory_extraction").substitute(
+        memory_kinds=kinds, max_operations=MAX_OPERATIONS
+    )
     data = load_prompt("memory_extraction_input").substitute(
         memories=current_memories, topic=topic, transcript=transcript
     )
