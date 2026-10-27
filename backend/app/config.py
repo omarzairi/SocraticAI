@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -16,6 +16,15 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8")
 
     database_path: Path = BACKEND_DIR / "data" / "app.db"
+
+    # SecretStr keeps the key out of logs and reprs. Empty means "not configured yet".
+    llm_api_key: SecretStr = SecretStr("")
+    llm_base_url: str = "https://api.groq.com/openai/v1"
+    llm_model: str = "openai/gpt-oss-120b"
+    # gpt-oss thinks before answering; "low" keeps replies fast. Empty for models that don't reason.
+    llm_reasoning_effort: str = "low"
+    llm_timeout_seconds: float = 30.0
+    llm_max_retries: int = 2
 
     @field_validator("database_path")
     @classmethod
