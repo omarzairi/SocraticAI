@@ -49,6 +49,14 @@ def insert_message(
     return cursor.lastrowid
 
 
+def get_message(conn: sqlite3.Connection, message_id: int) -> Message:
+    """A message that is known to exist (used right after inserting it)."""
+    row = conn.execute(
+        f"SELECT {MESSAGE_COLUMNS} FROM messages WHERE id = ?", (message_id,)
+    ).fetchone()
+    return Message(**row)
+
+
 def list_messages(conn: sqlite3.Connection, session_id: int) -> list[Message]:
     """Messages of one session, oldest first.
 

@@ -3,6 +3,9 @@ from dataclasses import dataclass
 
 from app.llm import ChatMessage
 
+# The opening question the start_session fixture scripts for every new session.
+OPENING_QUESTION = "Hi! What do you already know about this topic?"
+
 # A scripted reply: the text to return, an exception to raise, or a function that runs while
 # the "LLM is thinking" (to simulate a concurrent request) and returns the text.
 Reply = str | Exception | Callable[[list[ChatMessage]], str]

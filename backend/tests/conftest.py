@@ -9,10 +9,7 @@ from app.config import Settings
 from app.database import connect
 from app.dependencies import get_llm_client
 from app.main import create_app
-from tests.fakes import FakeLLMClient
-
-OPENING_QUESTION = "Hi! What do you already know about this topic?"
-TUTOR_REPLY = "Interesting. Why do you think that?"
+from tests.fakes import OPENING_QUESTION, FakeLLMClient
 
 
 @pytest.fixture
