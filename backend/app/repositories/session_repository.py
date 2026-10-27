@@ -40,6 +40,11 @@ def list_sessions(conn: sqlite3.Connection, learner_id: int) -> list[Session]:
 
 
 def list_messages(conn: sqlite3.Connection, session_id: int) -> list[Message]:
+    """Messages of one session, oldest first.
+
+    Callers first load the session with get_session(conn, learner_id, session_id),
+    which checks that the session belongs to the learner.
+    """
     rows = conn.execute(
         f"SELECT {MESSAGE_COLUMNS} FROM messages WHERE session_id = ? ORDER BY id",
         (session_id,),

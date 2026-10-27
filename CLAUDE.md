@@ -43,13 +43,17 @@ Frontend (run from `frontend/`):
 - **Ordering:** order rows by `id` (`AUTOINCREMENT`). Timestamps are for display only (UTC ISO strings generated in Python). The one exception is memory recency, which orders by `updated_at DESC, id DESC`.
 
 **Learner scoping**
-- Every learner-owned resource lives under `/api/learners/{learner_id}/…`, and every query filters by `learner_id`.
+- Every learner-owned resource lives under `/api/learners/{learner_id}/…`.
+  - Queries on `sessions` and `memories` filter by `learner_id`.
+  - `messages` are only read or written for a session already loaded with `session_service.get_session(conn, learner_id, session_id)`, which checks that the session belongs to that learner.
 - Path ids use the `Id` alias (`1 … 2**63-1`), so oversized ids return 422 instead of crashing sqlite.
 
 **Errors and validation**
 - **Errors:** services raise `NotFoundError` (404), `ConflictError` (409) or `LLMError` (502), and `main.py` maps them in one place.
   - No broad `except Exception`.
-  - Expected failures are handled and logged with `logging` (never `print`). Real bugs surface as 500s.
+  - Client errors (404 / 409 / 422) are returned to the caller, not logged; the server's access log already records them.
+  - LLM failures and skipped extractor operations are logged with `logging` (never `print`).
+  - Real bugs surface as 500s.
 - **Validation:** Pydantic models guard every boundary.
   - Request bodies use `extra="forbid"`, stripped and length-limited strings, and `Literal` enums.
   - LLM output (memory operations) is validated the same way.
@@ -95,6 +99,6 @@ Frontend (run from `frontend/`):
 
 ## Style
 
-- **Python:** type hints everywhere, ruff for lint and format (line length 100), small functions, descriptive names.
+- **Python:** type hints on all app code (tests may omit them), ruff for lint and format (line length 100), small functions, descriptive names.
 - **TypeScript:** strict mode, ESLint.
 - **Comments:** only for a non-obvious "why", never to restate the code.
