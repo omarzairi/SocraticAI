@@ -53,6 +53,17 @@ def test_transaction_rolls_back_on_error(conn, db_path):
     assert not conn.in_transaction
 
 
+def test_transaction_keeps_the_original_error_when_sqlite_already_rolled_back(conn, db_path):
+    with pytest.raises(sqlite3.IntegrityError):
+        with transaction(conn):
+            conn.execute(INSERT_LEARNER)
+            # OR ROLLBACK makes SQLite end the transaction itself before raising.
+            conn.execute("INSERT OR ROLLBACK INTO learners (name, created_at) VALUES (NULL, 'x')")
+
+    assert count_learners(db_path) == 0
+    assert not conn.in_transaction
+
+
 def test_nested_transaction_fails_loudly(conn):
     with transaction(conn):
         with pytest.raises(sqlite3.OperationalError, match="within a transaction"):
