@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorBanner, LearnerNav, buttonClass, quietButtonClass } from "@/components/ui";
 import { ApiError, api, errorText } from "@/lib/api";
 import { MEMORY_KIND_LABELS, type MemoryUpdate, type SessionDetail } from "@/lib/types";
@@ -16,6 +16,12 @@ export default function ChatPage() {
   const [busy, setBusy] = useState<"sending" | "ending" | null>(null);
   const [memoryUpdate, setMemoryUpdate] = useState<MemoryUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const endOfChat = useRef<HTMLDivElement>(null);
+
+  // Keep the newest message (or the "thinking" line) in view as the conversation grows.
+  useEffect(() => {
+    endOfChat.current?.scrollIntoView({ block: "end" });
+  }, [session?.messages.length, busy, memoryUpdate]);
 
   useEffect(() => {
     let ignore = false;
@@ -106,6 +112,7 @@ export default function ChatPage() {
 
       <ErrorBanner message={error} />
       {memoryUpdate && <MemoryUpdateCard learnerId={learnerId} update={memoryUpdate} />}
+      <div ref={endOfChat} />
 
       {isActive ? (
         <form onSubmit={send} className="mt-6">
