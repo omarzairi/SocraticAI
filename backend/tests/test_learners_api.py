@@ -2,7 +2,8 @@ from datetime import datetime
 
 import pytest
 
-INVALID_IDS = ["abc", "0", "-1", "99999999999999999999"]
+# 2**63 is one past SQLite's largest integer.
+INVALID_IDS = ["abc", "0", "-1", str(2**63)]
 
 
 def test_create_learner_strips_the_name(client):
@@ -30,6 +31,10 @@ def test_create_learner_strips_the_name(client):
 )
 def test_create_learner_rejects_invalid_body(client, payload):
     assert client.post("/api/learners", json=payload).status_code == 422
+
+
+def test_name_at_the_length_limit_is_accepted(client):
+    assert client.post("/api/learners", json={"name": "x" * 60}).status_code == 201
 
 
 def test_list_learners_in_creation_order(client, make_learner):
@@ -60,3 +65,7 @@ def test_get_unknown_learner_returns_404(client):
 @pytest.mark.parametrize("bad_id", INVALID_IDS)
 def test_invalid_learner_id_returns_422(client, bad_id):
     assert client.get(f"/api/learners/{bad_id}").status_code == 422
+
+
+def test_largest_valid_id_is_accepted(client):
+    assert client.get(f"/api/learners/{2**63 - 1}").status_code == 404

@@ -1,4 +1,5 @@
 import pytest
+from fastapi.testclient import TestClient
 
 from app import main
 
@@ -19,15 +20,23 @@ def test_health(client):
     assert response.json() == {"status": "ok"}
 
 
+def test_data_survives_an_app_restart(settings, make_learner):
+    alex = make_learner("Alex")
+
+    with TestClient(main.create_app(settings)) as restarted:
+        assert restarted.get("/api/learners").json() == [alex]
+
+
+@pytest.mark.parametrize("origin", ["http://localhost:3000", "http://127.0.0.1:3000"])
 @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
-def test_cors_preflight_allows_frontend_writes(client, method):
+def test_cors_preflight_allows_frontend_writes(client, origin, method):
     response = client.options(
         "/api/learners",
-        headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": method},
+        headers={"Origin": origin, "Access-Control-Request-Method": method},
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-origin"] == origin
     assert method in response.headers["access-control-allow-methods"]
 
 

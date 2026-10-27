@@ -1,6 +1,7 @@
 import pytest
 
-INVALID_IDS = ["abc", "0", "-1", "99999999999999999999"]
+# 2**63 is one past SQLite's largest integer.
+INVALID_IDS = ["abc", "0", "-1", str(2**63)]
 
 
 def test_start_session_creates_an_active_session(client, make_learner):
@@ -17,6 +18,14 @@ def test_start_session_creates_an_active_session(client, make_learner):
     assert session["learner_id"] == learner["id"]
     assert session["ended_at"] is None
     assert session["messages"] == []
+
+
+def test_topic_at_the_length_limit_is_accepted(client, make_learner):
+    learner = make_learner()
+
+    response = client.post(f"/api/learners/{learner['id']}/sessions", json={"topic": "x" * 120})
+
+    assert response.status_code == 201
 
 
 def test_start_session_for_unknown_learner_returns_404(client):
@@ -59,6 +68,17 @@ def test_list_sessions_newest_first(client, make_learner, start_session, db):
     sessions = client.get(f"/api/learners/{learner['id']}/sessions").json()
 
     assert [session["id"] for session in sessions] == [second["id"], first["id"]]
+
+
+def test_list_sessions_only_returns_the_learners_own_sessions(client, make_learner, start_session):
+    alex = make_learner("Alex")
+    sam = make_learner("Sam")
+    start_session(alex["id"], "Fractions")
+    sams_session = start_session(sam["id"], "Algebra")
+
+    sessions = client.get(f"/api/learners/{sam['id']}/sessions").json()
+
+    assert [session["id"] for session in sessions] == [sams_session["id"]]
 
 
 def test_list_sessions_for_unknown_learner_returns_404(client):
@@ -109,5 +129,22 @@ def test_invalid_session_id_returns_422(client, make_learner, bad_id):
     learner = make_learner()
 
     response = client.get(f"/api/learners/{learner['id']}/sessions/{bad_id}")
+
+    assert response.status_code == 422
+
+
+@pytest.mark.parametrize("bad_id", INVALID_IDS)
+@pytest.mark.parametrize(
+    "method, path",
+    [
+        ("POST", "/api/learners/{id}/sessions"),
+        ("GET", "/api/learners/{id}/sessions"),
+        ("GET", "/api/learners/{id}/sessions/1"),
+    ],
+)
+def test_invalid_learner_id_on_session_routes_returns_422(client, method, path, bad_id):
+    body = {"topic": "Fractions"} if method == "POST" else None
+
+    response = client.request(method, path.format(id=bad_id), json=body)
 
     assert response.status_code == 422
