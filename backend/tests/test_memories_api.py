@@ -94,6 +94,7 @@ def test_another_learners_memory_cannot_be_edited_or_deleted(
     )
     assert client.delete(memories_url(learner, sams_memory)).status_code == 404
     assert client.get(memories_url(sam)).json()[0]["content"] == "Sam's gap."
+    assert client.get(memories_url(learner)).json() == []  # Alex never sees Sam's memories
 
 
 @pytest.mark.parametrize("bad_id", INVALID_IDS)
@@ -141,3 +142,6 @@ def test_a_memory_edited_through_the_api_survives_the_extractor(
 
     [memory] = client.get(memories_url(learner)).json()
     assert (memory["content"], memory["status"]) == ("I'm fine with fractions.", "active")
+
+    start_session(learner["id"])  # the corrected memory personalizes the next session
+    assert "I'm fine with fractions." in fake_llm.chat_calls[-1].messages[0]["content"]

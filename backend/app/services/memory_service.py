@@ -27,7 +27,9 @@ def edit_memory(conn: sqlite3.Connection, learner_id: int, memory_id: int, conte
     with transaction(conn):
         if not memory_repository.update_memory_by_learner(conn, learner_id, memory_id, content):
             raise NotFoundError(f"Memory {memory_id} not found.")
-    return memory_repository.get_memory(conn, learner_id, memory_id)
+        # Read inside the transaction: a delete from another tab can't slip in before it.
+        memory = memory_repository.get_memory(conn, learner_id, memory_id)
+    return memory
 
 
 def delete_memory(conn: sqlite3.Connection, learner_id: int, memory_id: int) -> None:
