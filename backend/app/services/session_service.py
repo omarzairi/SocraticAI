@@ -42,8 +42,14 @@ def send_message(
         temperature=TUTOR_TEMPERATURE,
     )
     with transaction(conn):
-        # Checked again: the session may have ended while the LLM was answering.
+        # Checked again: while the LLM was answering, the session may have ended or another
+        # message may have arrived (a second tab), and the reply was written for `history`.
         _ensure_active(get_session(conn, learner_id, session_id))
+        if session_repository.count_messages(conn, session_id) != len(history):
+            raise ConflictError(
+                "The conversation changed while the tutor was answering. "
+                "Reload the session and try again."
+            )
         learner_message_id = session_repository.insert_message(conn, session_id, "learner", content)
         tutor_message_id = session_repository.insert_message(conn, session_id, "tutor", reply)
     return ChatTurn(

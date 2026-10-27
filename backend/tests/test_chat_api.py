@@ -95,6 +95,27 @@ def test_session_ended_while_the_tutor_was_replying_saves_nothing(client, fake_l
     assert stored_messages(client, session) == [("tutor", OPENING_QUESTION)]
 
 
+def test_reply_to_an_outdated_conversation_is_not_saved(client, fake_llm, session, db):
+    def another_tab_sends_a_message_meanwhile(messages):
+        for role, content in [("learner", "From the other tab"), ("tutor", "Reply there")]:
+            db.execute(
+                "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+                (session["id"], role, content, "2026-01-01T00:00:00Z"),
+            )
+        return "A reply that never saw the other tab's message"
+
+    fake_llm.chat_replies.append(another_tab_sends_a_message_meanwhile)
+
+    response = client.post(messages_url(session), json={"content": "I add them."})
+
+    assert response.status_code == 409
+    assert stored_messages(client, session) == [
+        ("tutor", OPENING_QUESTION),
+        ("learner", "From the other tab"),
+        ("tutor", "Reply there"),
+    ]
+
+
 def test_no_database_lock_is_held_while_waiting_for_the_llm(client, fake_llm, session, db):
     def write_from_another_connection(messages):
         # db uses busy_timeout = 0, so this write fails at once if the request holds a lock.

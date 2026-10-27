@@ -49,6 +49,12 @@ def insert_message(
     return cursor.lastrowid
 
 
+def count_messages(conn: sqlite3.Connection, session_id: int) -> int:
+    return conn.execute(
+        "SELECT count(*) FROM messages WHERE session_id = ?", (session_id,)
+    ).fetchone()[0]
+
+
 def get_message(conn: sqlite3.Connection, message_id: int) -> Message:
     """A message that is known to exist (used right after inserting it)."""
     row = conn.execute(
