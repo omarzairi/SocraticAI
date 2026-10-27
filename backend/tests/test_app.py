@@ -1,5 +1,16 @@
 import pytest
 
+from app import main
+
+
+def test_building_the_app_does_not_read_settings(monkeypatch):
+    def fail_if_called():
+        raise AssertionError("Settings() must only be read when the server starts")
+
+    monkeypatch.setattr(main, "Settings", fail_if_called)
+
+    main.create_app()
+
 
 def test_health(client):
     response = client.get("/api/health")
