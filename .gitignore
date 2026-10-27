@@ -1,0 +1,29 @@
+# The take-home brief is not part of the submission
+/*.pdf
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Backend runtime data (SQLite database)
+backend/data/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
