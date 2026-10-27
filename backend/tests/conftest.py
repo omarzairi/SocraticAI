@@ -1,3 +1,4 @@
+import sqlite3
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -5,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.config import Settings
+from app.database import connect
 from app.main import create_app
 
 
@@ -22,6 +24,14 @@ def client(settings: Settings) -> Iterator[TestClient]:
 
 
 @pytest.fixture
+def db(client: TestClient, settings: Settings) -> Iterator[sqlite3.Connection]:
+    """Direct database access for test setup and assertions."""
+    conn = connect(settings.database_path)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
 def make_learner(client: TestClient) -> Callable[..., dict]:
     def make(name: str = "Alex") -> dict:
         response = client.post("/api/learners", json={"name": name})
@@ -29,3 +39,13 @@ def make_learner(client: TestClient) -> Callable[..., dict]:
         return response.json()
 
     return make
+
+
+@pytest.fixture
+def start_session(client: TestClient) -> Callable[..., dict]:
+    def start(learner_id: int, topic: str = "Fractions") -> dict:
+        response = client.post(f"/api/learners/{learner_id}/sessions", json={"topic": topic})
+        assert response.status_code == 201, response.text
+        return response.json()
+
+    return start

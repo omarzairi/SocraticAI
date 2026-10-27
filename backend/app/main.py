@@ -6,8 +6,8 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings
 from app.database import init_db
-from app.errors import NotFoundError
-from app.routers import learners
+from app.errors import ConflictError, NotFoundError
+from app.routers import learners, sessions
 
 # The Next.js dev server, reachable under both names.
 FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -34,11 +34,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def handle_not_found(request: Request, exc: NotFoundError) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
 
+    @app.exception_handler(ConflictError)
+    async def handle_conflict(request: Request, exc: ConflictError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
+
     @app.get("/api/health", tags=["health"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     app.include_router(learners.router)
+    app.include_router(sessions.router)
     return app
 
 
