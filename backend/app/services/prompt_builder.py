@@ -1,4 +1,3 @@
-from functools import cache
 from pathlib import Path
 from string import Template
 
@@ -14,8 +13,9 @@ HISTORY_CHAR_BUDGET = 8_000
 LLM_ROLES = {"learner": "user", "tutor": "assistant"}
 
 
-@cache
 def load_prompt(name: str) -> Template:
+    # Read on every use (a tiny file next to an LLM call), so edits apply without a restart:
+    # `fastapi dev` only reloads when a .py file changes.
     return Template((PROMPTS_DIR / f"{name}.md").read_text(encoding="utf-8"))
 
 
