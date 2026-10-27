@@ -1,8 +1,11 @@
 import logging
 import sqlite3
 
+from app.database import transaction
+from app.errors import NotFoundError
 from app.repositories import memory_repository
-from app.schemas import MemoryUpdate
+from app.schemas import Memory, MemoryUpdate
+from app.services import learner_service
 from app.services.memory_extraction import (
     ArchiveOperation,
     CreateOperation,
@@ -11,6 +14,29 @@ from app.services.memory_extraction import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def list_memories(conn: sqlite3.Connection, learner_id: int) -> list[Memory]:
+    learner_service.get_learner(conn, learner_id)
+    return memory_repository.list_memories(conn, learner_id)
+
+
+def edit_memory(conn: sqlite3.Connection, learner_id: int, memory_id: int, content: str) -> Memory:
+    """Correct a memory. From now on the extractor can never change or archive it."""
+    learner_service.get_learner(conn, learner_id)
+    with transaction(conn):
+        if not memory_repository.update_memory_by_learner(conn, learner_id, memory_id, content):
+            raise NotFoundError(f"Memory {memory_id} not found.")
+        # Read inside the transaction: a delete from another tab can't slip in before it.
+        memory = memory_repository.get_memory(conn, learner_id, memory_id)
+    return memory
+
+
+def delete_memory(conn: sqlite3.Connection, learner_id: int, memory_id: int) -> None:
+    learner_service.get_learner(conn, learner_id)
+    with transaction(conn):
+        if not memory_repository.delete_memory(conn, learner_id, memory_id):
+            raise NotFoundError(f"Memory {memory_id} not found.")
 
 
 def apply_operations(

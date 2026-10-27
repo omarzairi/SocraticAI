@@ -10,7 +10,7 @@ from app.config import Settings
 from app.database import init_db
 from app.errors import ConflictError, NotFoundError
 from app.llm import LLMError, OpenAICompatibleClient
-from app.routers import learners, sessions
+from app.routers import learners, memories, sessions
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.include_router(learners.router)
     app.include_router(sessions.router)
+    app.include_router(memories.router)
     return app
 
 

@@ -55,6 +55,10 @@ class MessageCreate(RequestBody):
     content: MessageContent
 
 
+class MemoryEdit(RequestBody):
+    content: MemoryContent
+
+
 class Learner(BaseModel):
     id: int
     name: str

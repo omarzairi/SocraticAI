@@ -45,6 +45,25 @@ def insert_memory(
     return cursor.lastrowid
 
 
+def update_memory_by_learner(
+    conn: sqlite3.Connection, learner_id: int, memory_id: int, content: str
+) -> bool:
+    """The learner's correction. Sets user_edited, which locks the memory against the extractor."""
+    cursor = conn.execute(
+        "UPDATE memories SET content = ?, user_edited = 1, updated_at = ? "
+        "WHERE id = ? AND learner_id = ?",
+        (content, utc_now(), memory_id, learner_id),
+    )
+    return cursor.rowcount == 1
+
+
+def delete_memory(conn: sqlite3.Connection, learner_id: int, memory_id: int) -> bool:
+    cursor = conn.execute(
+        "DELETE FROM memories WHERE id = ? AND learner_id = ?", (memory_id, learner_id)
+    )
+    return cursor.rowcount == 1
+
+
 # The two functions below are the only ways the extractor changes an existing memory.
 # Their WHERE clause enforces the rule "the extractor never touches a memory the learner
 # edited", even if the learner edits it while the extraction is running.
