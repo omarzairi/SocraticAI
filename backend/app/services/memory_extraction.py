@@ -4,10 +4,10 @@ import json
 import logging
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from app.llm import LLMError
-from app.schemas import MemoryContent, MemoryKind
+from app.schemas import SQLITE_MAX_INTEGER, MemoryContent, MemoryKind
 
 logger = logging.getLogger(__name__)
 
@@ -17,21 +17,30 @@ INVALID_REPLY = (
 )
 
 
-class CreateOperation(BaseModel):
+MemoryId = Annotated[int, Field(ge=1, le=SQLITE_MAX_INTEGER)]
+
+
+class Operation(BaseModel):
+    # An unexpected field (e.g. a "kind" on an update) means the model misunderstood the
+    # format, so the operation is rejected instead of half-applied.
+    model_config = ConfigDict(extra="forbid")
+
+
+class CreateOperation(Operation):
     action: Literal["create"]
     kind: MemoryKind
     content: MemoryContent
 
 
-class UpdateOperation(BaseModel):
+class UpdateOperation(Operation):
     action: Literal["update"]
-    memory_id: int
+    memory_id: MemoryId
     content: MemoryContent
 
 
-class ArchiveOperation(BaseModel):
+class ArchiveOperation(Operation):
     action: Literal["archive"]
-    memory_id: int
+    memory_id: MemoryId
 
 
 MemoryOperation = Annotated[
@@ -64,6 +73,10 @@ def parse_operations(raw: str) -> list[MemoryOperation]:
             operations.append(_operation_adapter.validate_python(item))
         except ValidationError as exc:
             logger.warning("Skipping an invalid memory operation %.200r: %s", item, exc)
+    if data["operations"] and not operations:
+        # Ending the session would look like "nothing to remember" and couldn't be retried.
+        logger.warning("Every memory operation was invalid: %.300r", raw)
+        raise LLMError(INVALID_REPLY)
     if len(operations) > MAX_OPERATIONS:
         logger.warning("Keeping the first %d of %d operations", MAX_OPERATIONS, len(operations))
     return operations[:MAX_OPERATIONS]

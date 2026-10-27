@@ -64,6 +64,8 @@ def test_malformed_replies_raise_llm_error(raw):
         {"action": "delete", "memory_id": 3},
         {"action": "update", "memory_id": "three", "content": "Can add fractions."},
         {"action": "archive"},
+        {"action": "archive", "memory_id": 2**63},
+        {"action": "update", "memory_id": 4, "content": "Mastered it.", "kind": "progress"},
         "not an object",
     ],
 )
@@ -71,6 +73,12 @@ def test_an_invalid_operation_is_skipped_and_the_others_survive(bad_operation):
     operations = parse_operations(reply(CREATE, bad_operation, ARCHIVE))
 
     assert operations == [CreateOperation(**CREATE), ArchiveOperation(**ARCHIVE)]
+
+
+def test_a_reply_where_every_operation_is_invalid_raises_llm_error():
+    # Ending the session would otherwise look like "nothing to remember", with no way to retry.
+    with pytest.raises(LLMError, match="couldn't summarize"):
+        parse_operations(reply({"action": "create", "kind": "Knowledge gap", "content": "x"}))
 
 
 def test_at_most_eight_operations_are_kept():

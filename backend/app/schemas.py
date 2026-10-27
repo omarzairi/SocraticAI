@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 
 # Rejects text spanning several lines (checked after surrounding whitespace is stripped).
 SINGLE_LINE = r"^[^\r\n]+$"
+# Ids must fit in a SQLite INTEGER; a larger value would make sqlite3 raise (a 500).
+SQLITE_MAX_INTEGER = 2**63 - 1
 
 LearnerName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60, pattern=SINGLE_LINE)
