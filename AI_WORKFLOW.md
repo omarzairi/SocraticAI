@@ -194,3 +194,21 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
 37. **The reviewer agents were blocked again.**
     - **What happened:** the auto-mode classifier blocked the frontend reviewer agent. I didn't retry it in other forms, and reviewed the frontend myself instead.
     - **Bug found:** if ending a session failed with a 409 (already ended elsewhere), the UI still said "Your session is still open". That sentence now appears only for a 502. (`17c16af`)
+
+### Live prompt check against the real model (Groq gpt-oss-120b)
+
+38. **The Socratic prompt took 4 iterations on the misconception scenario** (the learner says "1/2 + 1/3 = 2/5").
+    - **v1:** "If we write 1/2 with denominator 6, what does it become?" One question, but it jumps straight to the method, so the learner never sees *why* 2/5 is wrong.
+    - **v2** added "first let them see it can't be right, then name it, then the method":
+      - Better idea: estimate 0.5 + 0.33.
+      - But the reply asked **three** questions and leaked the answer "5/6".
+    - **v3** spelled the steps out further:
+      - Worse: five questions in a row.
+      - The tutor also explained the contradiction itself ("2/5 is smaller than 1/2, so the rule can't be right"), which is exactly the learner's job.
+      - **Lesson:** each extra clause made gpt-oss *less* compliant.
+    - **v4:** a short, single-action rule ("ask one question that helps them notice their answer can't be right"), plus a final, checkable line ("your reply contains exactly one question mark and does not do the learner's thinking"). Results:
+      - Over 2 full runs, every reply had exactly one question.
+      - The misconception got a real counter-example: "If you tried 1/2 + 1/4 by adding the tops and bottoms… is that larger or smaller than each original fraction?"
+      - Learners who demanded the answer still never got it.
+    - (`b8e…`, see the git log for `fix(prompts): surface misconceptions`)
+39. **A Windows-only crash in my own script.** `try_tutor.py` crashed printing the model's narrow no-break space, because the Windows console uses cp1252. It now writes UTF-8 to stdout.
