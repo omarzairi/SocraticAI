@@ -107,7 +107,7 @@ A recorded video of the UI going through both sessions with the real model is [d
 
 - Migrations (Alembic) and a server database (PostgreSQL) for multi-user hosting.
 - Auth, streaming replies, and Docker. These were out of scope by design.
-- Continuous deployment. CI already checks every change, but a public deployment needs auth first: without it, anyone with the link could read every learner's notes and use up the LLM key's quota.
+- Continuous deployment. CI already checks every pull request and every push to `main`, but a public deployment needs auth first: without it, anyone with the link could read every learner's notes and use up the LLM key's quota.
 - Semantic retrieval (embeddings) once a learner has many notes.
 - A change history per note.
 - Suggested updates for notes you have locked, which you approve.
