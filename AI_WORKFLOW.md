@@ -4,7 +4,7 @@ This file covers how I used AI coding tools to build this project. It also recor
 
 ## Tools
 
-- **Claude Code (Opus 5.5)** as the main coding agent, with these plugins:
+- **Claude Code (Opus 5.5 (with Sonnet 5 sub agents))** as the main coding agent, with these plugins:
   - `superpowers`, for discipline: brainstorm and plan before building.
   - `feature-dev`, to build one feature at a time: explore, design, implement, review.
   - `pr-review-toolkit`, whose `silent-failure-hunter`, `pr-test-analyzer` and `code-reviewer` agents run on every feature's diff.
