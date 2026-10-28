@@ -89,18 +89,6 @@ Long chats are trimmed to a character budget, because the free tier limits token
 - **One active session per learner:** memory evolves in a clean order.
 - **Calls go straight to FastAPI over CORS:** Next.js rewrites have a 30 s proxy timeout, which a slow LLM call can exceed.
 
-## How to change things
-
-- **Add a memory kind:**
-  1. Add it to `MemoryKind` and `MEMORY_KIND_DESCRIPTIONS` in `backend/app/schemas.py`. The prompts pick it up automatically.
-  2. Add a label in `MEMORY_KIND_LABELS` (`frontend/src/lib/types.ts`).
-- **Add a session field:**
-  1. Add it to `schema.sql` and to the `Session` model in `schemas.py`.
-  2. Add it to `SESSION_COLUMNS` and `insert_session` in `repositories/session_repository.py`.
-  3. Add it to `frontend/src/lib/types.ts`.
-  4. Delete `backend/data/app.db`.
-- **Change the tutor's style:** edit `backend/app/prompts/tutor_system.md`. It's re-read on every request, so no restart is needed.
-
 ## Demo: one session, then a return visit
 
 A recorded video of the UI going through both sessions with the real model is [docs/demo/socratic-demo.webm](docs/demo/socratic-demo.webm). To re-record it (both servers running), run `cd frontend && node scripts/record-demo.mjs`. A real transcript from the model, covering both sessions and the memory updates, is in [docs/demo/DEMO.md](docs/demo/DEMO.md). To regenerate it (it uses a throw-away database), run `cd backend && uv run python -m scripts.demo_two_sessions > ../docs/demo/DEMO.md`. To try it in the UI:
