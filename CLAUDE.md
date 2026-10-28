@@ -24,6 +24,8 @@ Frontend (run from `frontend/`):
 - `npm install`, `npm run dev` (http://localhost:3000)
 - `npm run lint`, `npm run build` (the build also type-checks)
 
+CI (`.github/workflows/ci.yml`) runs the same backend and frontend checks on every push to `main` and every pull request.
+
 ## Backend architecture rules
 
 **Layers and transactions**
