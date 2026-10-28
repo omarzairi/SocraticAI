@@ -226,3 +226,12 @@ The step was built in 4 commits, each of which passes its own tests. Then `silen
     - **Problem:** my evidence rule ("a question the learner didn't answer shows nothing") made the extractor record nothing whenever a session ended on a tutor question, and every session ends that way. Session 2 never archived the overcome misconception.
     - **How I found it:** I called the extractor directly with session 2's exact inputs. It worked in isolation, which pointed at how the model read the wording rather than at the code.
     - **Fix:** the rule now says what *is* evidence ("a correct calculation is evidence of progress"). Verified live: progress is created and both old mistakes are archived.
+
+### Publishing and CI
+
+43. **A CI comment described an older version of `actions/checkout`.**
+    - **Generated:** `persist-credentials: false # nothing pushes, so the token isn't kept in .git/config`.
+    - **Problem:** that is how checkout worked before v6. Version 7 keeps the token in a temporary file and only points `.git/config` at it. What the option really does is make checkout delete that file when its step ends, so later steps such as `npm ci` can't read the token.
+    - **Caught by:** the `code-reviewer` agent, which checked the claim against the CI run's log.
+    - **Fix:** the comment now says what the option does. (`fe32d16`)
+    - **Same review:** the README said CI "checks every change", but a push to a branch without a pull request isn't checked. It now names exactly what CI runs on. (`c16ec1a`)
