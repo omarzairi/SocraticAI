@@ -1,5 +1,7 @@
 # SocraticAI
 
+[![CI](https://github.com/omarzairi/SocraticAI/actions/workflows/ci.yml/badge.svg)](https://github.com/omarzairi/SocraticAI/actions/workflows/ci.yml)
+
 A Socratic tutor with long-term memory. You pick a topic and the tutor answers with guiding questions instead of answers: it surfaces misconceptions with counter-examples and gives smaller hints when you're stuck. When you end a session, it writes notes about you (progress, knowledge gaps, misconceptions, learning preferences). Those notes personalize your next sessions, and you can read, correct or delete them at any time.
 
 Built for the Raiselabs internship take-home. How AI tools were used, including the bugs and design flaws they caught, is in [AI_WORKFLOW.md](AI_WORKFLOW.md). The approved plan is in [docs/plan.md](docs/plan.md).
@@ -33,6 +35,8 @@ cd frontend && npm run lint && npm run build   # build includes the TypeScript c
 ```
 
 The tests never call the real LLM. They use a scripted fake, and test settings point at an unreachable URL with a dummy key.
+
+GitHub Actions runs the same checks on every push to `main` and on every pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). Because the tests use the fake, CI needs no API key.
 
 To reset all data, stop the backend and delete `backend/data/app.db`. There are no migrations; see "With more time".
 
@@ -103,6 +107,7 @@ A recorded video of the UI going through both sessions with the real model is [d
 
 - Migrations (Alembic) and a server database (PostgreSQL) for multi-user hosting.
 - Auth, streaming replies, and Docker. These were out of scope by design.
+- Continuous deployment. CI already checks every pull request and every push to `main`, but a public deployment needs auth first: without it, anyone with the link could read every learner's notes and use up the LLM key's quota.
 - Semantic retrieval (embeddings) once a learner has many notes.
 - A change history per note.
 - Suggested updates for notes you have locked, which you approve.
